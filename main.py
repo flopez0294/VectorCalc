@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import time
 import mediapipe as mp
+import pyautogui
 
 # Globals
 DIM = 250
@@ -72,12 +73,21 @@ def cursor(img,points):
 def main():
     pTime = 0
     cTime = 0
+    #Timers for the timed functions
+    clickTimer = 0
+    keyTimer = 0
     
     # this initalizes what camera to use if an external camera is not used it switches to laptop cam
     cap = cv2.VideoCapture(1)
     if not cap.isOpened():
         cap.release()
         cap = cv2.VideoCapture(0)
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    screen_Width, screen_Height = pyautogui.size()
+    xScale = screen_Width/frame_width
+    yScale = screen_Height/frame_height
+
     
     # hand detection class
     detector = handDetector()
@@ -97,12 +107,54 @@ def main():
         img = detector.findHands(img)
         lmlist = detector.findPosition(img)
         
-        #Gesture detection
+        #Gesture detection block 
+        #thumb, index, middle, ring, and pinkie are true if they are extended and false if they aren't
+        thumb = False
+        index = False
+        middle = False
+        ring = False
+        pinkie = False
+
         if len(lmlist) >= 8:
-            #Detects if the thumb is in or out
-            if lmlist[4][1]<=lmlist[3][1]:
-                # Activates cursor if the thumb is out
-                img = cursor(img,lmlist[8])
+            if lmlist[4][1]<lmlist[3][1]:
+                thumb = True
+            if lmlist[8][2]<lmlist[5][2]:
+                index = True
+            if lmlist[12][2]<lmlist[9][2]:
+                middle = True
+            if lmlist[16][2]<lmlist[13][2]:
+                ring = True
+            if lmlist[20][2]<lmlist[17][2]:
+                pinkie = True
+
+        #If the thumb and index finger are extended, it moves the cursor to the fingertip
+        if thumb and index:
+            cursor(img,lmlist[8])
+            pyautogui.moveTo(lmlist[8][1]*xScale, lmlist[8][2]*yScale)
+            #if the middle finger is also extended for 3 seconds, clicks where the cursor is
+            if middle:
+                if clickTimer == 0:
+                    clickTimer=time.time()
+                elif time.time()-clickTimer >=3:
+                    pyautogui.click()
+                    clickTimer = 0 
+            else :
+                clickTimer=0
+                
+        #if the index, middle, and ring are up for 3 seconds then toggles the windows onscreen keyboard
+        if index and middle and ring:
+            if keyTimer == 0:
+                keyTimer=time.time()
+            elif time.time()-keyTimer >=3:
+                pyautogui.hotkey('ctrl','win', 'o')
+                keyTimer = 0 
+        else :
+            keyTimer = 0
+            
+        # stops the program if the index and pinkie are out and no other fingers are up
+        if (index and pinkie) and not (thumb or middle or ring):
+            break
+                
 
         #if len(lmlist) >= 8:
         #    print(lmlist[8])
