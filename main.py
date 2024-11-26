@@ -7,7 +7,6 @@ import mediapipe as mp
 DIM = 250
 draw_color = (255, 255, 255)  # Color for drawing
 erase_color = (0, 0, 0)        
-prev_x, prev_y = 0, 0
 
 # Hand tracking class to be able to know at what locations every point is at
 class handDetector():
@@ -62,23 +61,21 @@ def axis(img):
     return img
 
 def draw_line(cap,start,end,color, thickness=2):
-    cv2.line(cap, start, end, color, -1)
+    cv2.line(cap, start, end, color, thickness)
+    return cap
 
 
-def erase_area(cap, center, radius, color):
-    cv2.circle(cap, center, radius, color, -1)
+def erase_area(cap, center, radius, color, thickness=2):
+    cv2.circle(cap, center, radius, color, thickness)
+    return cap
 
 
 def main():
-
+    prev_x = 0
+    prev_y = 0
 
     pTime = 0
     cTime = 0
-
-
-
-      
-    
     # this initalizes what camera to use if an external camera is not used it switches to laptop cam
     cap = cv2.VideoCapture(1)
     if not cap.isOpened():
@@ -113,39 +110,30 @@ def main():
         else:
             fps = 0
         pTime = cTime
-        
-    while True:
-        # Read frame from webcam
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # Flip the frame horizontally
-        frame = cv2.flip(frame, 1)
 
         # Convert frame to RGB for MediaPipe
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         # Detect hand landmarks
-        results = hands.process(frame_rgb)
+        results = detector.hands.process(img_rgb)
 
         # Draw landmarks and get hand positions
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 for id, lm in enumerate(hand_landmarks.landmark):
                     # Get x, y coordinates of each landmark
-                    h, w, c = frame.shape
+                    h, w, c = img.shape
                     cx, cy = int(lm.x * w), int(lm.y * h)
 
                     if id == 8:  # Index finger tip (Left hand)
                         # Use index finger to draw
                         if prev_x != 0 and prev_y != 0:
-                            draw_line(cap, (prev_x, prev_y), (cx, cy), draw_color)
+                            draw_line(img, (img.shape[1]-DIM, DIM), (cx, cy), draw_color)
                         prev_x, prev_y = cx, cy
 
                     elif id == 12:  # Index finger tip (Right hand)
                         # Use middle finger to erase
-                        erase_area(cap, (cx, cy), 20, erase_color)
+                        erase_area(img, (cx, cy), 20, erase_color)
 
         
         # The settings text and fps
@@ -160,3 +148,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
