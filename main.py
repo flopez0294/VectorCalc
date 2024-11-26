@@ -8,7 +8,9 @@ from playsound import playsound
 # Globals
 DIM = 250
 draw_color = (255, 255, 255)  # Color for drawing
-erase_color = (0, 0, 0)        
+erase_color = (0, 0, 0)       
+mouse_pos = {'x': 0, 'y': 0} 
+moving = False
 
 # Hand tracking class to be able to know at what locations every point is at
 class handDetector():
@@ -147,6 +149,27 @@ def draw_tutorial_popup(img, tutorial):
             y_offset += 30  # Line spacing
     return img
 
+def mouse_callbacks(event, x, y, flags, param):
+    vecs, img, moving, tutorial = param
+    inGraph = x >= (img.shape[1]-(2*DIM)) and (x <= img.shape[1]) and (y >= 0 and y <= (2*DIM))
+    if event == cv2.EVENT_MOUSEMOVE:
+        mouse_pos['x'], mouse_pos['y'] = x, y
+        if inGraph: 
+            moving = True
+            if mouse_pos['x'] != 0 and mouse_pos['y'] != 0:
+                draw_line(img, (img.shape[1]-DIM, DIM), (x, y), draw_color)
+            mouse_pos['x'], mouse_pos['y'] = x, y
+    if event == cv2.EVENT_LBUTTONDOWN:
+        if inGraph:
+            if len(vecs) < 3:
+                new_vector = [x, y, abs(np.degrees(np.arctan2((-(y-vecs[0][1])),(x-vecs[0][0]))))]
+                vecs.append(new_vector)
+                playsound('audios/ping-82822.mp3', False)
+        if not tutorial[0] and (x >= 20 and x <= 205) and (y >= 20 and y <= 70):
+            tutorial[0] = True
+        elif tutorial[0] and (x >= 20 and x <= 520) and (y >= 20 and y <= 220):
+            tutorial[0] = False
+
 
 
 def main():
@@ -159,13 +182,13 @@ def main():
     clickTimer = 0
     keyTimer = 0
     
-    tutorial = False
     
     # this initalizes what camera to use if an external camera is not used it switches to laptop cam
     cap = cv2.VideoCapture(1)
     if not cap.isOpened():
         cap.release()
         cap = cv2.VideoCapture(0)
+    cv2.namedWindow("Image")
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     screen_Width, screen_Height = pyautogui.size()
@@ -182,10 +205,12 @@ def main():
     success, img = cap.read()
     vecs = [[img.shape[1]-DIM,DIM,0]]
     show_popup = True
+    mouse = False
+    tutorial = [False]
     while True:
         print("vecs:", vecs)
 
-        #get
+        # get
         success, img = cap.read()
         if not success:
             break
@@ -203,6 +228,7 @@ def main():
         pinkie = False
 
         if len(lmlist) >= 8:
+            mouse = False
             if lmlist[4][1]<lmlist[3][1]:
                 thumb = True
             if lmlist[8][2]<lmlist[5][2]:
@@ -213,6 +239,8 @@ def main():
                 ring = True
             if lmlist[20][2]<lmlist[18][2]:
                 pinkie = True
+        else: 
+            mouse = True
 
         # If the thumb and index finger are extended, it moves the cursor to the fingertip 
         # It will also put a line on the screen for a possibe vector
@@ -236,13 +264,13 @@ def main():
                 elif time.time()-clickTimer >=3:
                     pyautogui.click()
                     if len(vecs) < 3 and inGraph:
-                        new_vector = [lmlist[8][1], lmlist[8][2], abs(np.degrees(np.arctan((-(lmlist[8][2]-vecs[0][1]))/(lmlist[8][1]-vecs[0][0]))))]
+                        new_vector = [lmlist[8][1], lmlist[8][2], abs(np.degrees(np.arctan2((-(lmlist[8][2]-vecs[0][1])),(lmlist[8][1]-vecs[0][0]))))]
                         vecs.append(new_vector)
                     clickTimer = 0 
-                    if not tutorial and (cx >= 20 and cx <= 205) and (cy >= 20 and cy <= 70):
-                        tutorial = True
-                    elif tutorial and (cx >= 20 and cx <= 520) and (cy >= 20 and cy <= 220):
-                        tutorial = False
+                    if not tutorial[0] and (cx >= 20 and cx <= 205) and (cy >= 20 and cy <= 70):
+                        tutorial[0] = True
+                    elif tutorial[0] and (cx >= 20 and cx <= 520) and (cy >= 20 and cy <= 220):
+                        tutorial[0] = False
                     playsound('audios/ping-82822.mp3', False)
             else :
                 clickTimer=0
@@ -263,6 +291,15 @@ def main():
         if (index and pinkie) and not (thumb or middle or ring):
             break
         
+        if mouse:
+            moving = False
+            cv2.setMouseCallback("Image", mouse_callbacks, param=(vecs, img, moving, tutorial))
+            inGraph = mouse_pos['x'] >= (img.shape[1]-(2*DIM)) and (mouse_pos['x'] <= img.shape[1]) and (mouse_pos['y'] >= 0 and mouse_pos['y'] <= (2*DIM))
+
+            if inGraph and not moving:
+                draw_line(img, (img.shape[1] - DIM, DIM), (mouse_pos['x'], mouse_pos['y']), draw_color)
+            
+        
         # calculate the frames
         cTime = time.time()
         if cTime - pTime > 0:
@@ -279,17 +316,9 @@ def main():
                 img = draw_popup(img, vecs)
 
         # The Tutorial text and fps
-        img = draw_tutorial_popup(img, tutorial)
-        # if not tutorial: 
-        #     cv2.rectangle(img, (5,5), (220, 65), (50, 50, 50) , -1 )
-        #     cv2.rectangle(img, (5,5), (220, 65), (255, 255, 255) , 2 )
-        #     cv2.putText(img, "Tutorial", (15, 50), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
-        # else:
-        #     s = "Tutorial\nIndex and Thumb extended: is for cursor\n\tAdd the Thumb: selection\nIndex and Pinkie (or q key): closes application"
-        #     cv2.putText(img, s, (15, 50), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
-            
-        
+        img = draw_tutorial_popup(img, tutorial[0])
         cv2.putText(img, str(int(fps)),(10, img.shape[0] - 30), cv2.FONT_HERSHEY_PLAIN, 3, (255,0, 255),3)
+        # Shows the image
         cv2.imshow("Image", img)
 
         # When you press q it quits the program
