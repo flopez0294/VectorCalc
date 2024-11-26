@@ -3,6 +3,7 @@ import cv2
 import time
 import mediapipe as mp
 import pyautogui
+from playsound import playsound
 
 # Globals
 DIM = 250
@@ -24,7 +25,7 @@ class handDetector():
         self.mpDraw = mp.solutions.drawing_utils
     
     # Puts the hand markers on the frame
-    def findHands(self, img, draw=True):
+    def find_hands(self, img, draw=True):
         imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(imgRGB)
 
@@ -35,7 +36,7 @@ class handDetector():
         return img
 
     # returns a 2D list with the locations with x y coordinates of every point
-    def findPosition(self, img, handNo=0, draw=True):
+    def find_position(self, img, handNo=0, draw=True):
         lmlist = []
         if self.results.multi_hand_landmarks:
             myHand = self.results.multi_hand_landmarks[handNo]
@@ -83,13 +84,8 @@ def draw_line(img, start, end, color, thickness=2):
     end_y = max(y_min, min(end[1], y_max))
     
     # Draw the clamped line
-    cv2.line(img, (start_x, start_y), (end_x, end_y), color, thickness)
+    cv2.arrowedLine(img, (start_x, start_y), (end_x, end_y), color, thickness)
     return img
-
-
-def erase_area(cap, center, radius, color, thickness=2):
-    cv2.circle(cap, center, radius, color, thickness)
-    return cap
 
 def draw_vectors(img, vecs):
     for vector in vecs:
@@ -122,6 +118,35 @@ def draw_popup(img, vectors):
 
     return img
 
+def draw_tutorial_popup(img, tutorial):
+    popup_w, popup_h = 500, 200
+    popup_x, popup_y = 20, 20
+
+    if not tutorial:
+        # Draw button for showing tutorial
+        cv2.rectangle(img, (popup_x, popup_y), (popup_x + 185, popup_y + 50), (50, 50, 50), -1)
+        cv2.rectangle(img, (popup_x, popup_y), (popup_x + 185, popup_y + 50), (255, 255, 255), 2)
+        cv2.putText(img, "Show Tutorial", (popup_x + 10, popup_y + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+    else:
+        # Draw tutorial popup
+        cv2.rectangle(img, (popup_x, popup_y), (popup_x + popup_w, popup_y + popup_h), (50, 50, 50), -1)
+        cv2.rectangle(img, (popup_x, popup_y), (popup_x + popup_w, popup_y + popup_h), (255, 255, 255), 2)
+
+        # Tutorial content
+        tutorial_text = [
+            "Tutorial:",
+            "Index & Thumb extended: Cursor",
+            "   Add Middle (hold for 3 seconds): Selection",
+            "Index & Pinkie (or hold Q key): Close app"
+        ]
+
+        # Display tutorial text line by line
+        y_offset = popup_y + 30
+        for line in tutorial_text:
+            cv2.putText(img, line, (popup_x + 10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+            y_offset += 30  # Line spacing
+    return img
+
 
 
 def main():
@@ -133,6 +158,8 @@ def main():
     #Timers for the timed functions
     clickTimer = 0
     keyTimer = 0
+    
+    tutorial = False
     
     # this initalizes what camera to use if an external camera is not used it switches to laptop cam
     cap = cv2.VideoCapture(1)
@@ -164,8 +191,8 @@ def main():
             break
         img = cv2.flip(img, 1)
         img = axis(img)
-        img = detector.findHands(img)
-        lmlist = detector.findPosition(img)
+        img = detector.find_hands(img)
+        lmlist = detector.find_position(img)
         img = draw_vectors(img, vecs)
         #Gesture detection block 
         #thumb, index, middle, ring, and pinkie are true if they are extended and false if they aren't
@@ -180,23 +207,27 @@ def main():
                 thumb = True
             if lmlist[8][2]<lmlist[5][2]:
                 index = True
-            if lmlist[12][2]<lmlist[9][2]:
+            if lmlist[12][2]<lmlist[10][2]: # switch 9 with 10 so you dont have to bend down as far
                 middle = True
-            if lmlist[16][2]<lmlist[13][2]:
+            if lmlist[16][2]<lmlist[14][2]: # did the same with 13 switched with 14
                 ring = True
-            if lmlist[20][2]<lmlist[17][2]:
+            if lmlist[20][2]<lmlist[18][2]:
                 pinkie = True
 
         # If the thumb and index finger are extended, it moves the cursor to the fingertip 
         # It will also put a line on the screen for a possibe vector
         if thumb and index:
             cursor(img,lmlist[8])
-            pyautogui.moveTo(lmlist[8][1]*xScale, lmlist[8][2]*yScale)
+            # pyautogui.moveTo(lmlist[8][1]*xScale, lmlist[8][2]*yScale)
+            pyautogui.moveTo(lmlist[8][1], lmlist[8][2])
             # if the middle finger is also extended for 3 seconds, clicks where the cursor is
+            
             cx, cy = int(lmlist[8][1]), int(lmlist[8][2])
-            if prev_x != 0 and prev_y != 0:
-                draw_line(img, (img.shape[1]-DIM, DIM), (cx, cy), draw_color)
-            prev_x, prev_y = cx, cy
+            inGraph = (cx >= (img.shape[1]-(2*DIM)) and cx <= img.shape[1]) and (cy >= 0 and cy <= (2*DIM))
+            if inGraph:
+                if prev_x != 0 and prev_y != 0:
+                    draw_line(img, (img.shape[1]-DIM, DIM), (cx, cy), draw_color)
+                prev_x, prev_y = cx, cy
             # if the middle finger is also extended for 3 seconds, clicks where the cursor is
             # it will place the vector down on screen
             if middle:
@@ -204,9 +235,15 @@ def main():
                     clickTimer=time.time()
                 elif time.time()-clickTimer >=3:
                     pyautogui.click()
-                    new_vector = [lmlist[8][1], lmlist[8][2], abs(np.degrees(np.arctan((-(lmlist[8][2]-vecs[0][1]))/(lmlist[8][1]-vecs[0][0]))))]
-                    vecs.append(new_vector)
+                    if len(vecs) < 3 and inGraph:
+                        new_vector = [lmlist[8][1], lmlist[8][2], abs(np.degrees(np.arctan((-(lmlist[8][2]-vecs[0][1]))/(lmlist[8][1]-vecs[0][0]))))]
+                        vecs.append(new_vector)
                     clickTimer = 0 
+                    if not tutorial and (cx >= 20 and cx <= 205) and (cy >= 20 and cy <= 70):
+                        tutorial = True
+                    elif tutorial and (cx >= 20 and cx <= 520) and (cy >= 20 and cy <= 220):
+                        tutorial = False
+                    playsound('audios/ping-82822.mp3', False)
             else :
                 clickTimer=0
         else: 
@@ -241,9 +278,17 @@ def main():
             if len(vecs) > 1:
                 img = draw_popup(img, vecs)
 
-        # The settings text and fps
-        cv2.rectangle(img, (5,5), (220, 65), (255, 0, 255) , 3 )
-        cv2.putText(img, "Settings", (10, 50), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 255), 3)
+        # The Tutorial text and fps
+        img = draw_tutorial_popup(img, tutorial)
+        # if not tutorial: 
+        #     cv2.rectangle(img, (5,5), (220, 65), (50, 50, 50) , -1 )
+        #     cv2.rectangle(img, (5,5), (220, 65), (255, 255, 255) , 2 )
+        #     cv2.putText(img, "Tutorial", (15, 50), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+        # else:
+        #     s = "Tutorial\nIndex and Thumb extended: is for cursor\n\tAdd the Thumb: selection\nIndex and Pinkie (or q key): closes application"
+        #     cv2.putText(img, s, (15, 50), cv2.FONT_HERSHEY_PLAIN, 3, (255, 255, 255), 3)
+            
+        
         cv2.putText(img, str(int(fps)),(10, img.shape[0] - 30), cv2.FONT_HERSHEY_PLAIN, 3, (255,0, 255),3)
         cv2.imshow("Image", img)
 
