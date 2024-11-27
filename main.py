@@ -114,7 +114,7 @@ def draw_popup(img, vectors):
     y_offset = 50
     for i, vector in enumerate(vectors):
         if i != 0:
-            text = f"Vec {i}: x={vector[0] - vectors[0][0]}, y={-(vector[1] - vectors[0][1])}, angle={vector[2]:.2f}"
+            text = f"Vec {i}: x={vector[0] - vectors[0][0]}, y={-(vector[1] - vectors[0][1])}, mag={vector[2]:.2f}"
             cv2.putText(img, text, (popup_x + 10, popup_y + y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
             y_offset += 20  # Spacing between lines
 
@@ -162,14 +162,40 @@ def mouse_callbacks(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         if inGraph:
             if len(vecs) < 3:
-                new_vector = [x, y, abs(np.degrees(np.arctan2((-(y-vecs[0][1])),(x-vecs[0][0]))))]
+                new_vector = [x, y, (((x-(img.shape[1]-DIM))**2) + ((-(y - DIM))**2))**(1/2)]
                 vecs.append(new_vector)
                 playsound('audios/ping-82822.mp3', False)
+                if len(vecs) == 3:
+                    add = add_vectors(vecs)
+                    sub = sub_vectors(vecs)
+                    vecs.append(add)
+                    vecs.append(sub)
         if not tutorial[0] and (x >= 20 and x <= 205) and (y >= 20 and y <= 70):
             tutorial[0] = True
         elif tutorial[0] and (x >= 20 and x <= 520) and (y >= 20 and y <= 220):
             tutorial[0] = False
 
+def add_vectors(vecs):
+    origin = vecs[0]
+    vec1 = vecs[1]
+    vec2 = vecs[2]
+    x = (vec1[0] - origin[0]) + (vec2[0] - origin[0])
+    y = (vec1[1] - origin[1]) + (vec2[1] - origin[1])
+    return [x + origin[0],y + origin[1], ((y**2) + (x**2))**(1/2)]
+
+def sub_vectors(vecs):
+    origin = vecs[0]
+    vec1 = vecs[1]
+    vec2 = vecs[2]
+    x = (vec1[0] - origin[0]) - (vec2[0] - origin[0])
+    y = (vec1[1] - origin[1]) - (vec2[1] - origin[1])
+    return [x + origin[0], y + origin[1], ((x**2) + (y**2))**(1/2)]
+
+def dot_vectors(vecs):
+    vec1 = vecs[1]
+    vec2 = vecs[2]
+    num = (vec1[0] * vec2[0]) + (vec1[1] * vec2[1])
+    return num
 
 
 def main():
@@ -262,16 +288,22 @@ def main():
                 if clickTimer == 0:
                     clickTimer=time.time()
                 elif time.time()-clickTimer >=3:
-                    pyautogui.click()
+                    # pyautogui.click()
+                    playsound('audios/ping-82822.mp3', False)
                     if len(vecs) < 3 and inGraph:
-                        new_vector = [lmlist[8][1], lmlist[8][2], abs(np.degrees(np.arctan2((-(lmlist[8][2]-vecs[0][1])),(lmlist[8][1]-vecs[0][0]))))]
+                        new_vector = [lmlist[8][1], lmlist[8][2], ((lmlist[8][2]-vecs[0][1])**2 + (lmlist[8][1]-vecs[0][0])**2)**(1/2)]
                         vecs.append(new_vector)
+                        if len(vecs) == 3:
+                            add = add_vectors(vecs)
+                            sub = sub_vectors(vecs)
+                            vecs.append(add)
+                            vecs.append(sub)
                     clickTimer = 0 
                     if not tutorial[0] and (cx >= 20 and cx <= 205) and (cy >= 20 and cy <= 70):
                         tutorial[0] = True
                     elif tutorial[0] and (cx >= 20 and cx <= 520) and (cy >= 20 and cy <= 220):
                         tutorial[0] = False
-                    playsound('audios/ping-82822.mp3', False)
+                    
             else :
                 clickTimer=0
         else: 
