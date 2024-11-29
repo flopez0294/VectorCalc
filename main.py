@@ -4,6 +4,7 @@ import time
 import mediapipe as mp
 import pyautogui
 from playsound import playsound
+import random
 
 # Globals
 DIM = 250
@@ -120,7 +121,7 @@ def draw_popup(img, vectors):
 
     return img
 
-def draw_tutorial_popup(img, tutorial):
+def draw_menu_popup(img, tutorial):
     popup_w, popup_h = 500, 200
     popup_x, popup_y = 20, 20
 
@@ -129,6 +130,26 @@ def draw_tutorial_popup(img, tutorial):
         cv2.rectangle(img, (popup_x, popup_y), (popup_x + 185, popup_y + 50), (50, 50, 50), -1)
         cv2.rectangle(img, (popup_x, popup_y), (popup_x + 185, popup_y + 50), (255, 255, 255), 2)
         cv2.putText(img, "Show Tutorial", (popup_x + 10, popup_y + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        
+        # Draw Add Vector button
+        add_x = popup_x + 205
+        cv2.rectangle(img, (add_x, popup_y), (add_x + 170, popup_y + 50), (50, 50, 50), -1)
+        cv2.rectangle(img, (add_x, popup_y), (add_x + 170, popup_y + 50), (255, 255, 255), 2)
+        cv2.putText(img, "Add Vectors", (add_x + 10, popup_y + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        
+        # Draw Sub Vector Button
+        sub_x = add_x + 190
+        cv2.rectangle(img, (sub_x, popup_y), (sub_x + 170, popup_y + 50), (50, 50, 50), -1)
+        cv2.rectangle(img, (sub_x, popup_y), (sub_x + 170, popup_y + 50), (255, 255, 255), 2)
+        cv2.putText(img, "Sub Vectors", (sub_x + 10, popup_y + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        
+        # Draw Delete Vector Button
+        del_y = popup_y + 70
+        cv2.rectangle(img, (popup_x, del_y), (popup_x + 200, del_y + 50), (50, 50, 50), -1)
+        cv2.rectangle(img, (popup_x, del_y), (popup_x + 200, del_y + 50), (255, 255, 255), 2)
+        cv2.putText(img, "Delete Vectors", (popup_x + 10, del_y + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        
+        
     else:
         # Draw tutorial popup
         cv2.rectangle(img, (popup_x, popup_y), (popup_x + popup_w, popup_y + popup_h), (50, 50, 50), -1)
@@ -165,12 +186,26 @@ def mouse_callbacks(event, x, y, flags, param):
                 new_vector = [x, y, (((x-(img.shape[1]-DIM))**2) + ((-(y - DIM))**2))**(1/2)]
                 vecs.append(new_vector)
                 playsound('audios/ping-82822.mp3', False)
-                if len(vecs) == 3:
-                    add = add_vectors(vecs)
-                    sub = sub_vectors(vecs)
-                    vecs.append(add)
-                    vecs.append(sub)
-        if not tutorial[0] and (x >= 20 and x <= 205) and (y >= 20 and y <= 70):
+        if len(vecs) >= 3:
+            if (x >= 225 and x <= 395) and (y >= 20 and y <= 70):
+                new_vector = add_vectors(vecs)
+                question_popup(img, True, vecs)
+                vecs.pop()
+                vecs.pop()
+                vecs.append(new_vector)
+            elif (x >= 415 and x <= 585) and (y >= 20 and 70):
+                new_vector = sub_vectors(vecs)
+                question_popup(img, False, vecs)
+                vecs.pop()
+                vecs.pop()
+                vecs.append(new_vector)
+            elif (x >= 20 and x <= 220) and (y >= 90 and y <= 140):
+                while len(vecs) > 1: 
+                    vecs.pop()
+        if (x >= 20 and x <= 220) and (y >= 90 and y <= 140):
+            while len(vecs) > 1: 
+                vecs.pop()
+        elif not tutorial[0] and (x >= 20 and x <= 205) and (y >= 20 and y <= 70):
             tutorial[0] = True
         elif tutorial[0] and (x >= 20 and x <= 520) and (y >= 20 and y <= 220):
             tutorial[0] = False
@@ -196,6 +231,81 @@ def dot_vectors(vecs):
     vec2 = vecs[2]
     num = (vec1[0] * vec2[0]) + (vec1[1] * vec2[1])
     return num
+
+def question_popup(img, oper, vecs):
+    popup_w, popup_h = 400, 200
+    height, width = img.shape[0], img.shape[1]
+    
+    start_x, start_y = (width - popup_w) // 2,(height - popup_h) // 2
+    
+    cv2.rectangle(img, (start_x, start_y), (start_x + popup_w, start_y + popup_h), (50, 50, 50), -1)
+    cv2.rectangle(img, (start_x, start_y), (start_x + popup_w, start_y + popup_h), (255, 255, 255), 2)
+    sign = ''
+    operation= ""
+    if oper:
+        operation = 'sum'
+        sign = '+'
+    else: 
+        operation = 'difference'
+        sign = '-'
+    vec1 = vecs[1]
+    vec2 = vecs[2]
+    s = f"What is the {operation} of ({vec1[0] - (width - DIM)})x + ({-(vec1[1] - DIM)})y and"
+    cv2.putText(img, s, (start_x + 10, start_y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+    cv2.putText(img, f"({vec2[0] - (width - DIM)})x + ({-(vec2[1] - DIM)})y?",(start_x + 10, start_y + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+    correct_ans = random.randint(1,4)
+    ans = add_vectors(vecs) if oper else sub_vectors(vecs)
+    for i in range(4):
+        pos_ans = ""
+        pos_ans += f"   {i + 1}. "
+        if i + 1 == correct_ans:
+            pos_ans += f"({ans[0] - vecs[0][0]})x + ({-(ans[1] - vecs[0][1])})y"
+        else:
+            pos_ans += f"({random.randint(-500,500)})x + ({random.randint(-500,500)})y"
+        cv2.putText(img, pos_ans, (start_x + 10, start_y + 40 + (20 * (i + 1))), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            
+    cv2.imshow("Image", img)
+        
+    inp = 0
+    while True: 
+        key = cv2.waitKey(10) & 0xFF
+        
+        if key == ord('1'):
+            inp = 1
+            break
+        if key == ord('2'):
+            inp = 2
+            break
+        if key == ord('3'):
+            inp = 3
+            break
+        if key == ord('4'):
+            inp = 4
+            break
+        
+    cv2.rectangle(img, (start_x, start_y), (start_x + popup_w, start_y + popup_h), (255, 255, 255), 2)
+        
+    if inp == correct_ans:
+        cv2.rectangle(img, (start_x, start_y), (start_x + popup_w, start_y + popup_h), (0, 50, 0), -1)
+        cv2.putText(img, "THAT IS CORRECT!", (int(width/2) - 90, int((height/2) - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        cv2.putText(img, "Press N to continue", (int(width/2) - 90, int((height/2) + 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
+    else: 
+        cv2.rectangle(img, (start_x, start_y), (start_x + popup_w, start_y + popup_h), (0, 0, 50), -1)
+        cv2.putText(img, "THAT IS INCORRECT!", (int(width/2) - 90, int((height/2) - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        answer = f"Answer: ({ans[0] - vecs[0][0]})x + ({-(ans[1] - vecs[0][1])})y"
+        cv2.putText(img, answer, (int(width/2) - 90, int((height/2))), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
+        cv2.putText(img, "Press N to continue", (int(width/2) - 90, int((height/2) + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
+
+    
+    cv2.imshow("Image", img)
+    while True: 
+        if cv2.waitKey(10) & 0xFF == ord('n'):
+            break
+            
+        
+        
+        
+
 
 
 def main():
@@ -236,7 +346,7 @@ def main():
     while True:
         print("vecs:", vecs)
 
-        # get
+        # get image
         success, img = cap.read()
         if not success:
             break
@@ -245,8 +355,8 @@ def main():
         img = detector.find_hands(img)
         lmlist = detector.find_position(img)
         img = draw_vectors(img, vecs)
-        #Gesture detection block 
-        #thumb, index, middle, ring, and pinkie are true if they are extended and false if they aren't
+        # Gesture detection block 
+        # thumb, index, middle, ring, and pinkie are true if they are extended and false if they aren't
         thumb = False
         index = False
         middle = False
@@ -292,14 +402,28 @@ def main():
                     playsound('audios/ping-82822.mp3', False)
                     if len(vecs) < 3 and inGraph:
                         new_vector = [lmlist[8][1], lmlist[8][2], ((lmlist[8][2]-vecs[0][1])**2 + (lmlist[8][1]-vecs[0][0])**2)**(1/2)]
-                        vecs.append(new_vector)
-                        if len(vecs) == 3:
-                            add = add_vectors(vecs)
-                            sub = sub_vectors(vecs)
-                            vecs.append(add)
-                            vecs.append(sub)
+                        vecs.append(new_vector)  
                     clickTimer = 0 
-                    if not tutorial[0] and (cx >= 20 and cx <= 205) and (cy >= 20 and cy <= 70):
+                    if len(vecs) >= 3:
+                        if (cx >= 225 and cx <= 395) and (cy >= 20 and cy <= 70):
+                            new_vector = add_vectors(vecs)
+                            question_popup(img, True, vecs)
+                            vecs.pop()
+                            vecs.pop()
+                            vecs.append(new_vector)
+                        elif (cx >= 415 and cx <= 585) and (cy >= 20 and 70):
+                            new_vector = sub_vectors(vecs)
+                            question_popup(img, False, vecs)
+                            vecs.pop()
+                            vecs.pop()
+                            vecs.append(new_vector)
+                        elif (cx >= 20 and cx <= 220) and (cy >= 90 and cy <= 140):
+                            while len(vecs) > 1: 
+                                vecs.pop()
+                    elif (cx >= 20 and cx <= 220) and (cy >= 90 and cy <= 140):
+                        while len(vecs) > 1: 
+                            vecs.pop()
+                    elif not tutorial[0] and (cx >= 20 and cx <= 205) and (cy >= 20 and cy <= 70):
                         tutorial[0] = True
                     elif tutorial[0] and (cx >= 20 and cx <= 520) and (cy >= 20 and cy <= 220):
                         tutorial[0] = False
@@ -348,8 +472,11 @@ def main():
                 img = draw_popup(img, vecs)
 
         # The Tutorial text and fps
-        img = draw_tutorial_popup(img, tutorial[0])
+        img = draw_menu_popup(img, tutorial[0])
+            
+        
         cv2.putText(img, str(int(fps)),(10, img.shape[0] - 30), cv2.FONT_HERSHEY_PLAIN, 3, (255,0, 255),3)
+        
         # Shows the image
         cv2.imshow("Image", img)
 
