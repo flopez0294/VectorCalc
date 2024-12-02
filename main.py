@@ -262,7 +262,7 @@ def question_popup(img, oper, vecs):
             pos_ans += f"({ans[0] - vecs[0][0]})x + ({-(ans[1] - vecs[0][1])})y"
         else:
             pos_ans += f"({random.randint(-500,500)})x + ({random.randint(-500,500)})y"
-        cv2.putText(img, pos_ans, (start_x + 10, start_y + 40 + (20 * (i + 1))), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        cv2.putText(img, pos_ans, (start_x + 10, start_y + 50 + (30 * (i + 1))), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
             
     cv2.imshow("Image", img)
         
@@ -288,18 +288,18 @@ def question_popup(img, oper, vecs):
     if inp == correct_ans:
         cv2.rectangle(img, (start_x, start_y), (start_x + popup_w, start_y + popup_h), (0, 50, 0), -1)
         cv2.putText(img, "THAT IS CORRECT!", (int(width/2) - 90, int((height/2) - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        cv2.putText(img, "Press N to continue", (int(width/2) - 90, int((height/2) + 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
+        cv2.putText(img, "Press Enter to continue", (int(width/2) - 90, int((height/2) + 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
     else: 
         cv2.rectangle(img, (start_x, start_y), (start_x + popup_w, start_y + popup_h), (0, 0, 50), -1)
         cv2.putText(img, "THAT IS INCORRECT!", (int(width/2) - 90, int((height/2) - 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
         answer = f"Answer: ({ans[0] - vecs[0][0]})x + ({-(ans[1] - vecs[0][1])})y"
         cv2.putText(img, answer, (int(width/2) - 90, int((height/2))), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
-        cv2.putText(img, "Press N to continue", (int(width/2) - 90, int((height/2) + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
+        cv2.putText(img, "Press Enter to continue", (int(width/2) - 90, int((height/2) + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)     
 
     
     cv2.imshow("Image", img)
     while True: 
-        if cv2.waitKey(10) & 0xFF == ord('n'):
+        if cv2.waitKey(10) & 0xFF == ord('\r'):
             break
             
         
@@ -456,13 +456,7 @@ def main():
                 draw_line(img, (img.shape[1] - DIM, DIM), (mouse_pos['x'], mouse_pos['y']), draw_color)
             
         
-        # calculate the frames
-        cTime = time.time()
-        if cTime - pTime > 0:
-            fps = 1 / (cTime - pTime)
-        else:
-            fps = 0
-        pTime = cTime
+        
                         
         if cv2.waitKey(10) & 0xFF == ord('p'):
             show_popup = not show_popup
@@ -474,8 +468,6 @@ def main():
         # The Tutorial text and fps
         img = draw_menu_popup(img, tutorial[0])
             
-        
-        cv2.putText(img, str(int(fps)),(10, img.shape[0] - 30), cv2.FONT_HERSHEY_PLAIN, 3, (255,0, 255),3)
         
         # Shows the image
         cv2.imshow("Image", img)
